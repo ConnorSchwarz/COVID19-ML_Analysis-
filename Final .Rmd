@@ -1,0 +1,261 @@
+---
+title: "An In-Depth Analysis of the Spread of COVID-19 and Risk Modeling"
+author: "Connor Schwarz"
+date: "12/11/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+# Overview 
+
+First reported in November of 2019, SARS-COV-2 spread across China drawing eyes all over the world. Travel allowed the disease to evolve into an international emergency. Countries quickly shut down, and enforced strict,sweeping orders that prevented the general populous from engaging in risk, transmission-heavy behaviors. 
+
+Data that accurately modeled the disease was scarce, adding to the heightened concern. As the data became more available, worrying trends appeared. Ranging from high R~0 values to long lasting waves of infection that quickly surged due to relaxed restrictions. 
+
+The data outlined in this report will interpret the current state of viral spread across the United States and study the correlations found in given populations. 
+  
+## Modeling the Spread of COVID Across the United States 
+```{r, include= FALSE}
+#total number of cases from previous -- make more accessible 
+
+library(tidyverse)
+library(ggplot2)
+options(stringsAsFactors= FALSE)
+library(dplyr)
+library(usmap)
+library(stats)
+#Data Entry 
+covid_cases<-read.csv(file= 'COVID19set.csv')
+covid_refined<- covid_cases %>% select(location, date, total_cases) 
+
+Data <- subset(covid_refined, location == "United States",
+               select=c(date, total_cases))
+head(Data)
+
+
+
+Days <- c(1:323)
+Total <- Data %>% select(total_cases)
+
+Total <- Total[ , ]
+
+Days <-data.frame( Days = c(1:323))
+  
+USFINAL <-data.frame("Days"= Days, "Total"= Total)
+head(USFINAL)
+
+us_graph<-ggplot(data = USFINAL, aes(x = Days, y = Total)) +
+  geom_line(aes(color = Total))+
+  labs(x= "Days Since First Infection", 
+       y="Total Cases",
+       subtitle= "United States Total Cases as of 12/10/2020")
+ 
+```
+```{r}
+us_graph
+
+```
+```{r, include = FALSE}
+library(usmap)
+state_data <- read.csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports_us/12-07-2020.csv")
+state_data2 <- state_data %>% select(Province_State, Confirmed)
+names(state_data2)[1] <- "state"
+#States <- state_data2 %>% select(Province_State)
+#Cases <- state_data2 %>% select(Confirmed)
+#US_State_COVID <- data.frame("states" = States, "Cases"= Cases)
+us_map<- plot_usmap(data = state_data2, value= "Confirmed", color="white") +
+  scale_fill_continuous(name = "Total Confirmed Cases",label= scales::comma)+
+  theme(legend.position = "left")
+```
+```{r}
+us_map
+```
+
+******
+
+### Statistical Analysis
+
+Finding key relationships between the population and the spread of COVID-19 is important to understanding the methods of action in spread. To analyze this, I have juxtaposed a state's education and health care rating, while accounting for the overall population.
+
+States that held a top and bottom 5 ranking in health care were examined based on their respective population. A greater percentage correlates to a worst performance in preventing the spread of SARS-COV-2. 
+
+```{r, include = FALSE}
+state_data <- read.csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports_us/12-07-2020.csv")
+state_data2 <- state_data %>% select(Province_State, Confirmed)
+Health_top5 <- c("Hawaii","Massachusets","Conneticut.","Washington","Rhode Island" )
+  t5_cases <- c(1.3, 3,3.8,2.4, 6.2 )
+Health_b5 <- c("Alabama","Oklahoma","West Virginia","Arkansas","Mississippi")
+  b5_cases <- c(5.5,5.6,3.1,5.7,5.6)
+  
+top_5 <- data.frame(Health_top5, t5_cases)
+top_5
+bottom_5 <- data.frame(Health_b5,b5_cases) 
+bottom_5
+
+
+top<-ggplot(top_5, aes(Health_top5,t5_cases))+
+  geom_boxplot()
+
+bottom<-ggplot(bottom_5, aes(Health_b5,b5_cases))+
+  geom_boxplot()
+
+par(mfrow=c(1,2))
+Bottom5 <-bottom_5$b5_cases
+Top5 <-top_5$t5_cases
+
+
+hist(Bottom5, xlab="% of Cases by State")
+hist(Top5, xlab= "% of Cases by State")
+
+t
+
+summary(bottom_5)
+summary(top_5)
+#Each State deviation from the Norm
+  #Table - State Deviation, Health Care Ranking, Education Ranking -- 
+
+# Analysis of Factors applying to the situation 
+```
+
+```{r}
+hist(Bottom5, xlab="% of Cases by State", main = "Distribution of Cases/Pop. among Bottom 5 states")
+hist(Top5, xlab= "% of Cases by State", main = "Distribution of Cases/Pop. among Top 5 states")
+
+summary(bottom_5)
+summary(top_5)
+```
+### Correlations found in Population 
+
+A statistically significant trend can be seen in the present data. States that score higher on the health care have lower cases per population (mean= 3.34%) in comparison to that of states in the lower tier of health care (mean=5.1%). 
+
+This difference can be correlated to the state's ability to supply vital health care resources that prevent the spread of the virus. Programs such as contact tracing and free testing have proven vital in the top 5 states. These programs allow citizens to know their risk as well as act to prevent spread. 
+  
+******  
+  
+## Using Clinical Data to Determine Risk Factors  
+
+A probit regression will be used to determine the most influential factors in regards to mortality. Based on these factors and their assigned influence, an ML model can be created to producing varying COVID Case predictions using past data. 
+
+This analysis uses Clinical Data from China. It details the percentage of patients arriving with varying conditions and the mortality present within the population. This data provided a strong basis for data simulation- where a set of 2000 observations was created that accurately reflected the values found in the studies.  
+
+#### Percentages found in Patient Presentation: 
+
+Non-Survivor Data: 
+
+* ARDS (Acute Respiratory Distress Syndrome): 92.59%
+* Invasive Mechanical Ventilation: 57.41% 
+* White Blood Cell Count: 9.8 
+* Fever: 94.44%
+* COPD: 7.41%
+* Chronic Kidney Disease: 3.70%
+* Diabetes: 31.48%
+* Hypertension: 48.15%
+* Age: 69 (LQ-63, HQ-76)
+* Smoker: 9.26%
+
+Survivor Data: 
+
+* ARDS: 6.57% 
+* IMV: .73%
+* White Blood Cell Count: 5.2 
+* Fever: 94.16%
+* COPD:1.46% 
+* Chronic Kidney Disease: 0%
+* Diabetes: 13.87% 
+* Hypertension: 23.26%
+* Age: 52
+* Smoker: 4.38%
+
+
+```{r, include = FALSE}
+#Creating the data set 
+ARDS<-sample(c(1,0), size = 1000, replace = TRUE,prob = c(.9259,.0741)) 
+IMV<-sample(c(1,0),size =1000, replace=TRUE,prob= c(.5741,.4259))
+WBCC <- rpois(n= 1000, lambda = 9.8)
+Fever<- sample(c(1,0), size = 1000, replace = TRUE, prob = c(.9444, .0556)) 
+COPD<- sample(c(1,0), size =1000, replace = TRUE, prob= c(.0741, .9259)) 
+CKD<- sample(c(1,0), size = 1000, replace = TRUE, prob = c(.0370, .963)) 
+Diabetes<-sample(c(1,0), size = 1000, replace = TRUE, prob = c(.3148,.6852))
+Hypertension<-sample(c(1,0),size = 1000, replace =TRUE, prob = c(.4815,.5185)) 
+Age<-rpois(n= 1000, lambda = 69)
+Smoker<-sample(c(1,0), size = 1000, replace = TRUE, prob= c(.0926,.9074)) 
+Mortality<-sample(c(1,0),size = 1000, replace = TRUE, prob=c(1,0))
+
+DF_NonSurvivor <- data.frame(ARDS,IMV,WBCC,Fever,COPD,CKD,Diabetes,Hypertension,Age,Smoker,Mortality)
+
+#Survivor Data 
+ARDS<-sample(c(1,0), size = 1000, replace = TRUE,prob = c(.0657,.9343)) 
+IMV<-sample(c(1,0),size =1000, replace=TRUE,prob= c(.073,.927))
+WBCC <- rpois(n= 1000, lambda = 5.2)
+Fever<- sample(c(1,0), size = 1000, replace = TRUE, prob = c(.9416, .0584)) 
+COPD<- sample(c(1,0), size =1000, replace = TRUE, prob= c(.0146, .9854)) 
+CKD<- sample(c(1,0), size = 1000, replace = TRUE, prob = c(0, 1)) 
+Diabetes<-sample(c(1,0), size = 1000, replace = TRUE, prob = c(.1378,.8622))
+Hypertension<-sample(c(1,0),size = 1000, replace =TRUE, prob = c(.2326,.7674)) 
+Age<-rpois(n= 1000, lambda = 52)
+Smoker<-sample(c(1,0), size = 1000, replace = TRUE, prob= c(.0438,.9526)) 
+Mortality<-sample(c(1,0),size = 1000, replace = TRUE, prob=c(0,1))
+
+DF_Survivor <- data.frame(ARDS,IMV,WBCC,Fever,COPD,CKD,Diabetes,Hypertension,Age,Smoker,Mortality)
+
+probit_testDF <- rbind(DF_NonSurvivor,DF_Survivor)
+
+```
+
+******
+
+Using the randomized data set given accurate distributions, the Probit model can be applied. To isolate one variable and it's affect on COVID mortality, Acute Respiratory Distress Syndrome was chosen due to its high prevalence in patients. 
+
+```{r, include = FALSE}
+#Probit Analysis 
+library(stats)
+library(tidyverse)
+probit <- glm(formula = Mortality ~ Diabetes+Hypertension+Age+Smoker+IMV+WBCC+Fever+COPD+CKD + ARDS, family = binomial(link = "probit"), data = probit_testDF, maxit = 1000) 
+
+summary(probit)
+
+
+
+#margins 
+margins <- addmargins(table(probit_testDF$Mortality, probit_testDF$ARDS, deparse.level= 2))
+margins 
+
+probX = function(p, model){
+  data.frame(prob = p, xval = (qnorm(p)-coef(model)[1]/coef(model)[2]))
+}
+d = probX(c(.01, .25, .5, .75,.9), probit)
+
+probit_graph<-ggplot(probit_testDF, aes(x=Age , y = Mortality))+
+  geom_point()+
+  stat_smooth(method ="glm", method.args =list(family =binomial(link= "probit")))
+
+```
+```{r}
+margins 
+summary(probit)
+probit_graph
+
+```
+
+The data found from the Probit regression analysis provided the following data: 
+
+#### Variables with Statistical Significance: 
+* Age 
+* Hypertension 
+* ARDS 
+* Invasive Mechanical Ventilation 
+* White Blood Cell Count 
+
+#### Age and COVID-19 Mortality 
+
+The graph above shows an extreme distribution in the probability of death with Age. With 50% chance at 60 years of age and near 100% at 70 years of age. 
+
+While some deaths were present in younger groups in the data set, they were outliers and produced negligible impact on the PDF of Age/Mortality. 
+
+#### ARDS and COVID-19 Mortality 
+
+Patients that presented with ARDS was found to be 49% of the test population. The average mortality across multiple test runs was found to be 93% in patients with ARDS. 
+
+Presentation of ARDS can be a strong determining factor in a patients future health and probability of Mortality. Typically, those with ARDS will require Mechanical Ventilation, further increasing the likelihood of mortality. 
+
+
